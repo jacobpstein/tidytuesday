@@ -16,7 +16,7 @@
         "\n",
         "Wow! Here we are attempting a Tidy Tuesday. This is a real long time listener, first time caller situation. My plan is to follow the [instructions](https://github.com/rfordatascience/tidytuesday/blob/main/data/2025/2025-04-15/readme.md) on the Posit git repo for loading the data and then get to work!\n"
       ],
-      "id": "7d61cb7d"
+      "id": "2a06049a"
     },
     {
       "cell_type": "code",
@@ -41,7 +41,7 @@
         "# let's update the sex column to numeric\n",
         "penguins['sex'] = penguins['sex'].map({'male': 0, 'female': 1})\n"
       ],
-      "id": "45c83b4b",
+      "id": "3d847dfe",
       "execution_count": null,
       "outputs": []
     },
@@ -51,7 +51,7 @@
       "source": [
         "Ok, let's just take a look at the basic relationships between our columns with my favorite EDA plot, the correlogram (a word I have only ever read and fear for the day I have to read out loud).\n"
       ],
-      "id": "f5d96f95"
+      "id": "75f3a9c4"
     },
     {
       "cell_type": "code",
@@ -69,7 +69,7 @@
         "```{python}\n",
         "penguins.drop(columns=['species', 'island']).corr()"
       ],
-      "id": "32aeb492",
+      "id": "7c82950c",
       "execution_count": null,
       "outputs": []
     },
@@ -81,7 +81,7 @@
         "\n",
         "# Model time!\n"
       ],
-      "id": "a8452795"
+      "id": "2aef92af"
     },
     {
       "cell_type": "code",
@@ -100,7 +100,7 @@
         "# The summary basically tells us what we saw from the correlation matrix\n",
         "print(model_simple.summary())"
       ],
-      "id": "dd5ab7e1",
+      "id": "2242a2f1",
       "execution_count": null,
       "outputs": []
     },
@@ -110,7 +110,7 @@
       "source": [
         "But we know there is some variation by species and island, so let's add that in the model and allow our intercept and slope to vary accordingly\n"
       ],
-      "id": "2bc3f08d"
+      "id": "2190bbe6"
     },
     {
       "cell_type": "code",
@@ -127,7 +127,7 @@
         "# take a look\n",
         "az.summary(model_mixed.fit())"
       ],
-      "id": "16761802",
+      "id": "ad98e3c4",
       "execution_count": null,
       "outputs": []
     },
@@ -137,7 +137,7 @@
       "source": [
         "It looks like basic OLS is overstating the flipper-body mass association because it ignores species-specific variation.\n"
       ],
-      "id": "58f42053"
+      "id": "fde4a28f"
     },
     {
       "cell_type": "code",
@@ -200,16 +200,28 @@
         "    plt.plot(x_vals, y_vals, color=color, linewidth=2, label=f\"Multilevel: {species}\")\n",
         "\n",
         "# Final touches\n",
-        "plt.xlabel(\"Flipper Length (mm)\")\n",
-        "plt.ylabel(\"Body Mass (g)\")\n",
+        "plt.xlabel(\"Flipper Length\")\n",
+        "plt.ylabel(\"Body Mass\")\n",
         "plt.title(\"Simple vs Multilevel Regression: A Tidy Tuesday Penguin Adventure\", fontsize=16)\n",
-        "plt.legend(title=\"Model\", fontsize=10, title_fontsize=12)\n",
+        "plt.legend(fontsize=10, title_fontsize=12)\n",
         "plt.tight_layout()\n",
-        "plt.show()"
+        "plt.show()\n",
+        "\n",
+        "# let's save the figure to post\n",
+        "plt.savefig(\"simple_vs_multilevel_penguins.png\", dpi=300)\n",
+        "plt.close()"
       ],
-      "id": "f12f8b4e",
+      "id": "aa75e39e",
       "execution_count": null,
       "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "I kind of feel like every model abstracts in some way, or to add my own abstraction--fitting a model to data is a blunt tool for understanding the world. But the point of this exercise is to see how accounting for the variation in our data by species and island (though as the table shows, this was less informative) makes the model a slightly better tool than assuming a very basic linear relationship."
+      ],
+      "id": "e5aeec67"
     }
   ],
   "metadata": {

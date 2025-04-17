@@ -125,14 +125,13 @@ plt.rcParams["font.family"] = "Gill Sans"
 plt.figure(figsize=(10, 6))
 sns.scatterplot(data=penguins_no_na, x="flipper_len", y="body_mass", hue="species", alpha=0.5, legend = False)
 
-
-# Add simple regression line
+# add simple regression line
 simple_intercept = model_simple.params['const']
 simple_slope = model_simple.params['flipper_len']
 y_simple = simple_intercept + simple_slope * flipper_grid
 plt.plot(flipper_grid, y_simple, linestyle='--', color='black', linewidth=2, label='Simple Linear Regression')
 
-# Add multilevel lines per species
+# add multilevel lines per species
 for species, color in custom_colors.items():
     subset = penguins_no_na[penguins_no_na["species"] == species]
     plt.scatter(subset["flipper_len"], subset["body_mass"], label=None, alpha=0.5, color=color)
@@ -143,10 +142,16 @@ for (species, x_vals, y_vals) in species_lines:
     plt.plot(x_vals, y_vals, color=color, linewidth=2, label=f"Multilevel: {species}")
 
 # Final touches
-plt.xlabel("Flipper Length (mm)")
-plt.ylabel("Body Mass (g)")
+plt.xlabel("Flipper Length")
+plt.ylabel("Body Mass")
 plt.title("Simple vs Multilevel Regression: A Tidy Tuesday Penguin Adventure", fontsize=16)
-plt.legend(title="Model", fontsize=10, title_fontsize=12)
+plt.legend(fontsize=10, title_fontsize=12)
 plt.tight_layout()
 plt.show()
+
+# let's save the figure to post
+plt.savefig("simple_vs_multilevel_penguins.png", dpi=300)
+plt.close()
 ```
+
+I kind of feel like every model abstracts in some way, or to add my own abstraction--fitting a model to data is a blunt tool for understanding the world. But the point of this exercise is to see how accounting for the variation in our data by species and island (though as the table shows, this was less informative) makes the model a slightly better tool than assuming a very basic linear relationship.
