@@ -1,0 +1,226 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "---\n",
+        "title: \"Palmer Penguins Tidy Tuesday\"\n",
+        "subtitle: \"or my attempt to compare linear and multi-level models in an hour\"\n",
+        "format: \n",
+        "    html:\n",
+        "        code-fold: true\n",
+        "embed-resources: true\n",
+        "---\n",
+        "\n",
+        "\n",
+        "Wow! Here we are attempting a Tidy Tuesday. This is a real long time listener, first time caller situation. My plan is to follow the [instructions](https://github.com/rfordatascience/tidytuesday/blob/main/data/2025/2025-04-15/readme.md) on the Posit git repo for loading the data and then get to work!\n"
+      ],
+      "id": "d8db5935"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "# load our libraries\n",
+        "import pandas as pd # for EDA and importing\n",
+        "import numpy as np # so pandas actually works\n",
+        "import seaborn as sns # for viz\n",
+        "import matplotlib.pyplot as plt # also for viz\n",
+        "import statsmodels.api as sm # for modeling\n",
+        "import bambi as bmb # for Bayesian multi-level models\n",
+        "import arviz as az # for model viz\n",
+        "from matplotlib import colormaps\n",
+        "import matplotlib.font_manager as font_manager # font fixes\n",
+        "\n",
+        "\n",
+        "# Load in our data from the Tidy Tuesday git repo:\n",
+        "\n",
+        "penguins = pd.read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2025/2025-04-15/penguins.csv')\n",
+        "\n",
+        "# let's update the sex column to numeric\n",
+        "penguins['sex'] = penguins['sex'].map({'male': 0, 'female': 1})\n"
+      ],
+      "id": "a5aff1d5",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "Ok, let's just take a look at the basic relationships between our columns with my favorite EDA plot, the correlogram (a word I have only ever read and fear for the day I have to read out loud).\n"
+      ],
+      "id": "d8b868b5"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        " # Basic correlogram\n",
+        "sns.pairplot(penguins, kind=\"scatter\", hue=\"species\")\n",
+        "plt.show()\n",
+        "\n",
+        " ```\n",
+        "\n",
+        "\n",
+        "and let's put some numbers behind that figure\n",
+        "\n",
+        "```{python}\n",
+        "penguins.drop(columns=['species', 'island']).corr()"
+      ],
+      "id": "b3fa44f9",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "Ok, so we see that flipper length and body mass are really, highly correlated. There's a pretty good relationship with bill length too, and it looks like female penguins tend to have lower mass and smaller bill and flipper lengths. \n",
+        "\n",
+        "# Model time!\n"
+      ],
+      "id": "260bc1f5"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "# There are 11 missing values from the sex column. If this weren't a Tidy Tuesday, we might do more work to see what's going on with those, but for now, let's power ahead and drop them for our model\n",
+        "\n",
+        "penguins_no_na = penguins.dropna()\n",
+        "\n",
+        "# fit a simple linear model to estimate the relationship between flipper length and body mass\n",
+        "\n",
+        "X = sm.add_constant(penguins_no_na['flipper_len'])\n",
+        "y = penguins_no_na['body_mass']\n",
+        "model_simple = sm.OLS(y, X).fit()\n",
+        "\n",
+        "# The summary basically tells us what we saw from the correlation matrix\n",
+        "print(model_simple.summary())"
+      ],
+      "id": "5d0620f1",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "But we know there is some variation by species and island, so let's add that in the model and allow our intercept and slope to vary accordingly\n"
+      ],
+      "id": "65399d57"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "message": false
+      },
+      "source": [
+        "#| warning: false\n",
+        "#| include: false\n",
+        "\n",
+        "\n",
+        "model_mixed = bmb.Model(\"body_mass ~ flipper_len + (1 + flipper_len | species) + (1 | island)\", data=penguins_no_na)\n",
+        "\n",
+        "# take a look\n",
+        "az.summary(model_mixed.fit())\n",
+        "\n",
+        "fitted_mixed = model_mixed.fit(draws=1000, chains=4, cores=2)"
+      ],
+      "id": "f8599141",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "It looks like basic OLS is overstating the flipper-body mass association because it ignores species-specific variation.\n"
+      ],
+      "id": "f206c95a"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "# Now that we've fit a model to the data to account for variation at different levels in our slopes and intercepts, let's pull those values out so we can use them for graphing\n",
+        "posterior = fitted_mixed.posterior\n",
+        "intercept_global = posterior[\"Intercept\"].mean().item()\n",
+        "slope_global = posterior[\"flipper_len\"].mean().item()\n",
+        "species_levels = penguins_no_na['species'].astype('category').cat.categories.tolist()\n",
+        "intercept_species = posterior[\"1|species\"].mean(dim=[\"chain\", \"draw\"]).values\n",
+        "slope_species = posterior[\"flipper_len|species\"].mean(dim=[\"chain\", \"draw\"]).values\n",
+        "\n",
+        "# Create some prediction lines\n",
+        "flipper_grid = np.linspace(penguins_no_na[\"flipper_len\"].min(), penguins_no_na[\"flipper_len\"].max(), 100)\n",
+        "species_lines = []\n",
+        "for i, species in enumerate(species_levels):\n",
+        "    intercept = intercept_global + intercept_species[i]\n",
+        "    slope = slope_global + slope_species[i]\n",
+        "    y_vals = intercept + slope * flipper_grid\n",
+        "    species_lines.append((species, flipper_grid, y_vals))\n",
+        "\n",
+        "# Add some nice colors and fonts\n",
+        "# hex colors for species, I took these from https://www.color-hex.com/color-palette/1058331\n",
+        "custom_colors = {\n",
+        "    \"Adelie\": \"#5b6f95\",\n",
+        "    \"Chinstrap\": \"#e85f1c\",\n",
+        "    \"Gentoo\": \"#8cc3c7\"\n",
+        "}\n",
+        "\n",
+        "# Set font to Gill Sans (if installed)\n",
+        "plt.rcParams[\"font.family\"] = \"Gill Sans\"\n",
+        "\n",
+        "# Graph the thing\n",
+        "plt.figure(figsize=(10, 6))\n",
+        "for species, color in custom_colors.items():\n",
+        "    subset = penguins_no_na[penguins_no_na[\"species\"] == species]\n",
+        "    plt.scatter(subset[\"flipper_len\"], subset[\"body_mass\"], alpha=0.5, color=color, label=None)\n",
+        "\n",
+        "# Simple regression line (dashed)\n",
+        "simple_intercept = model_simple.params['const']\n",
+        "simple_slope = model_simple.params['flipper_len']\n",
+        "y_simple = simple_intercept + simple_slope * flipper_grid\n",
+        "plt.plot(flipper_grid, y_simple, linestyle='--', color='black', linewidth=2, label='Simple Model--All speciies')\n",
+        "\n",
+        "# Multilevel regression lines\n",
+        "for (species, x_vals, y_vals) in species_lines:\n",
+        "    plt.plot(x_vals, y_vals, color=custom_colors[species], linewidth=2, label=f'Multilevel: {species}')\n",
+        "\n",
+        "# Labels and legend\n",
+        "plt.xlabel(\"Flipper Length\")\n",
+        "plt.ylabel(\"Body Mass\")\n",
+        "plt.title(\"Simple vs Multilevel Regression: A Tidy Tuesday Journey\", fontsize=16)\n",
+        "plt.legend(title=\"Model\", fontsize=10, title_fontsize=12)\n",
+        "plt.tight_layout()\n",
+        "\n",
+        "# Save figure\n",
+        "plt.savefig(\"simple_vs_multilevel_penguins.png\", dpi=300)\n",
+        "plt.show()"
+      ],
+      "id": "70ba3657",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "I kind of feel like every model abstracts in some way, or to add my own abstraction--fitting a model to data is a blunt tool for understanding the world. But the point of this exercise is to see how accounting for the variation in our data by species and island (though as the table shows, this was less informative) makes the model a slightly better tool than assuming a very basic linear relationship."
+      ],
+      "id": "e8791060"
+    }
+  ],
+  "metadata": {
+    "kernelspec": {
+      "name": "python3",
+      "language": "python",
+      "display_name": "Python 3 (ipykernel)",
+      "path": "/Users/jacobpstein/Documents/tidytuesday/.venv/share/jupyter/kernels/python3"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 5
+}
