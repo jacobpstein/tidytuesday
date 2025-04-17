@@ -78,6 +78,16 @@ But we know there is some variation by species and island, so let's add that in 
 
 model_mixed = bmb.Model("body_mass ~ flipper_len + (1 + flipper_len | species) + (1 | island)", data=penguins_no_na)
 
+# let's explain this because it's helpful for both python and R:
+# we want flipper length as a fixed effect (a consistent relationship across all penguins), but we also know that 
+# the relationship between flipper length and body mass may vary by species
+
+# (1 + flipper_len | species) means that both the intercept ("1") and the slope for flipper length can vary randomly by species 
+# Essentially, each penguin species might have its own unique relationship between flipper length and body mass
+# (1 | island) means that only the intercept varies by island. Penguin body mass might differ between islands
+# but the relationship between flipper length and body mass is probably the same across islands. But who knows, this could be an area
+# for more exploration
+
 # take a look
 az.summary(model_mixed.fit())
 
@@ -145,4 +155,4 @@ plt.savefig("simple_vs_multilevel_penguins.png", dpi=300)
 plt.show()
 ```
 
-I kind of feel like every model abstracts in some way, or to add my own abstraction--fitting a model to data is a blunt tool for understanding the world. But the point of this exercise is to see how accounting for the variation in our data by species and island (though as the table shows, this was less informative) makes the model a slightly better tool than assuming a very basic linear relationship.
+Every model abstracts in some way, or to add my own abstraction--fitting a model to data is a blunt tool for understanding the world. But the point of this exercise is to see how accounting for the variation in our data by species and island (though as the table shows, this was less informative) makes the model a slightly better tool than assuming a very basic linear relationship.
