@@ -41,7 +41,7 @@ Ok, let's just take a look at the basic relationships between our columns with m
 sns.pairplot(penguins, kind="scatter", hue="species")
 plt.show()
 
- ```
+```
 
 and let's put some numbers behind that figure
 ```{python}
