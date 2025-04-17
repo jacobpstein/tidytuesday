@@ -80,29 +80,25 @@ model_mixed = bmb.Model("body_mass ~ flipper_len + (1 + flipper_len | species) +
 
 # take a look
 az.summary(model_mixed.fit())
+
+fitted_mixed = model_mixed.fit(draws=1000, chains=4, cores=2)
+
 ```
 
 It looks like basic OLS is overstating the flipper-body mass association because it ignores species-specific variation.
 
 ```{python}
 
+# Now that we've fit a model to the data to account for variation at different levels in our slopes and intercepts, let's pull those values out so we can use them for graphing
 posterior = fitted_mixed.posterior
-
-# Global fixed effects (mean over draws)
 intercept_global = posterior["Intercept"].mean().item()
 slope_global = posterior["flipper_len"].mean().item()
-
-# Group-level effects for species
 species_levels = penguins_no_na['species'].astype('category').cat.categories.tolist()
+intercept_species = posterior["1|species"].mean(dim=["chain", "draw"]).values
+slope_species = posterior["flipper_len|species"].mean(dim=["chain", "draw"]).values
 
-# Get group-level effects as arrays: (chain, draw, group)
-intercept_species = posterior["1|species"].mean(dim=["chain", "draw"]).values  # shape: (n_species,)
-slope_species = posterior["flipper_len|species"].mean(dim=["chain", "draw"]).values  # shape: (n_species,)
-
-# Prepare x grid
+# Create some prediction lines
 flipper_grid = np.linspace(penguins_no_na["flipper_len"].min(), penguins_no_na["flipper_len"].max(), 100)
-
-# Build species lines
 species_lines = []
 for i, species in enumerate(species_levels):
     intercept = intercept_global + intercept_species[i]
@@ -123,35 +119,30 @@ plt.rcParams["font.family"] = "Gill Sans"
 
 # Graph the thing
 plt.figure(figsize=(10, 6))
-sns.scatterplot(data=penguins_no_na, x="flipper_len", y="body_mass", hue="species", alpha=0.5, legend = False)
+for species, color in custom_colors.items():
+    subset = penguins_no_na[penguins_no_na["species"] == species]
+    plt.scatter(subset["flipper_len"], subset["body_mass"], alpha=0.5, color=color, label=None)
 
-# add simple regression line
+# Simple regression line (dashed)
 simple_intercept = model_simple.params['const']
 simple_slope = model_simple.params['flipper_len']
 y_simple = simple_intercept + simple_slope * flipper_grid
-plt.plot(flipper_grid, y_simple, linestyle='--', color='black', linewidth=2, label='Simple Linear Regression')
+plt.plot(flipper_grid, y_simple, linestyle='--', color='black', linewidth=2, label='Simple Model--All speciies')
 
-# add multilevel lines per species
-for species, color in custom_colors.items():
-    subset = penguins_no_na[penguins_no_na["species"] == species]
-    plt.scatter(subset["flipper_len"], subset["body_mass"], label=None, alpha=0.5, color=color)
-
-# Multilevel regression lines (per species)
+# Multilevel regression lines
 for (species, x_vals, y_vals) in species_lines:
-    color = custom_colors.get(species, "gray")
-    plt.plot(x_vals, y_vals, color=color, linewidth=2, label=f"Multilevel: {species}")
+    plt.plot(x_vals, y_vals, color=custom_colors[species], linewidth=2, label=f'Multilevel: {species}')
 
-# Final touches
+# Labels and legend
 plt.xlabel("Flipper Length")
 plt.ylabel("Body Mass")
-plt.title("Simple vs Multilevel Regression: A Tidy Tuesday Penguin Adventure", fontsize=16)
-plt.legend(fontsize=10, title_fontsize=12)
+plt.title("Simple vs Multilevel Regression: A Tidy Tuesday Journey", fontsize=16)
+plt.legend(title="Model", fontsize=10, title_fontsize=12)
 plt.tight_layout()
-plt.show()
 
-# let's save the figure to post
+# Save figure
 plt.savefig("simple_vs_multilevel_penguins.png", dpi=300)
-plt.close()
+plt.show()
 ```
 
 I kind of feel like every model abstracts in some way, or to add my own abstraction--fitting a model to data is a blunt tool for understanding the world. But the point of this exercise is to see how accounting for the variation in our data by species and island (though as the table shows, this was less informative) makes the model a slightly better tool than assuming a very basic linear relationship.
