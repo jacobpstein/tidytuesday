@@ -147,7 +147,12 @@ for (species, x_vals, y_vals) in species_lines:
 # Labels and legend
 plt.xlabel("Body Mass")
 plt.ylabel("Flipper Length")
-plt.title("Simple vs Multilevel Regression: A Tidy Tuesday Journey", fontsize=16)
+
+plt.suptitle("Simple vs Multilevel Regression", fontsize=16, ha = 'center')
+plt.title("Multilevel models capture species-specific relationships that simple models miss", ha = 'center', 
+          fontsize=11, fontweight='normal', style='italic')
+
+          
 plt.legend(fontsize=10, title_fontsize=12)
 # I don't like graph borders
 plt.gca().spines['top'].set_visible(False)
