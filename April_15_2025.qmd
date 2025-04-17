@@ -60,8 +60,8 @@ penguins_no_na = penguins.dropna()
 
 # fit a simple linear model to estimate the relationship between flipper length and body mass
 
-X = sm.add_constant(penguins_no_na['flipper_len'])
-y = penguins_no_na['body_mass']
+X = sm.add_constant(penguins_no_na['body_mass'])
+y = penguins_no_na['flipper_len']
 model_simple = sm.OLS(y, X).fit()
 
 # The summary basically tells us what we saw from the correlation matrix
@@ -76,22 +76,23 @@ But we know there is some variation by species and island, so let's add that in 
 #| include: false
 
 
-model_mixed = bmb.Model("body_mass ~ flipper_len + (1 + flipper_len | species) + (1 | island)", data=penguins_no_na)
+model_mixed = bmb.Model("flipper_len ~ body_mass + (1 + body_mass | species) + (1 | island)", data=penguins_no_na)
 
 # let's explain this because it's helpful for both python and R:
-# we want flipper length as a fixed effect (a consistent relationship across all penguins), but we also know that 
+# we want body mass as a fixed effect (a consistent relationship across all penguins), but we also know that 
 # the relationship between flipper length and body mass may vary by species
 
-# (1 + flipper_len | species) means that both the intercept ("1") and the slope for flipper length can vary randomly by species 
+# (1 + body_mass | species) means that both the intercept ("1") and the slope for body mass can vary randomly by species 
 # Essentially, each penguin species might have its own unique relationship between flipper length and body mass
 # (1 | island) means that only the intercept varies by island. Penguin body mass might differ between islands
 # but the relationship between flipper length and body mass is probably the same across islands. But who knows, this could be an area
 # for more exploration
 
+fitted_mixed = model_mixed.fit(draws=1000, chains=4, cores=2)
+# we'll use the fitted model object for some other work, plus I always like to have it ready
+
 # take a look
 az.summary(model_mixed.fit())
-
-fitted_mixed = model_mixed.fit(draws=1000, chains=4, cores=2)
 
 ```
 
@@ -102,19 +103,19 @@ It looks like basic OLS is overstating the flipper-body mass association because
 # Now that we've fit a model to the data to account for variation at different levels in our slopes and intercepts, let's pull those values out so we can use them for graphing
 posterior = fitted_mixed.posterior
 intercept_global = posterior["Intercept"].mean().item()
-slope_global = posterior["flipper_len"].mean().item()
+slope_global = posterior["body_mass"].mean().item()
 species_levels = penguins_no_na['species'].astype('category').cat.categories.tolist()
 intercept_species = posterior["1|species"].mean(dim=["chain", "draw"]).values
-slope_species = posterior["flipper_len|species"].mean(dim=["chain", "draw"]).values
+slope_species = posterior["body_mass|species"].mean(dim=["chain", "draw"]).values
 
 # Create some prediction lines
-flipper_grid = np.linspace(penguins_no_na["flipper_len"].min(), penguins_no_na["flipper_len"].max(), 100)
+body_grid = np.linspace(penguins_no_na["body_mass"].min(), penguins_no_na["body_mass"].max(), 100)
 species_lines = []
 for i, species in enumerate(species_levels):
     intercept = intercept_global + intercept_species[i]
     slope = slope_global + slope_species[i]
-    y_vals = intercept + slope * flipper_grid
-    species_lines.append((species, flipper_grid, y_vals))
+    y_vals = intercept + slope * body_grid
+    species_lines.append((species, body_grid, y_vals))
 
 # Add some nice colors and fonts
 # hex colors for species, I took these from https://www.color-hex.com/color-palette/1058331
@@ -131,23 +132,28 @@ plt.rcParams["font.family"] = "Gill Sans"
 plt.figure(figsize=(10, 6))
 for species, color in custom_colors.items():
     subset = penguins_no_na[penguins_no_na["species"] == species]
-    plt.scatter(subset["flipper_len"], subset["body_mass"], alpha=0.5, color=color, label=None)
+    plt.scatter(subset["body_mass"], subset["flipper_len"], alpha=0.5, color=color, label=None)
 
 # Simple regression line (dashed)
 simple_intercept = model_simple.params['const']
-simple_slope = model_simple.params['flipper_len']
-y_simple = simple_intercept + simple_slope * flipper_grid
-plt.plot(flipper_grid, y_simple, linestyle='--', color='black', linewidth=2, label='Simple Model--All speciies')
+simple_slope = model_simple.params['body_mass']
+y_simple = simple_intercept + simple_slope * body_grid
+plt.plot(body_grid, y_simple, linestyle='--', color='black', linewidth=2, label='Simple Model-All speciies')
 
 # Multilevel regression lines
 for (species, x_vals, y_vals) in species_lines:
     plt.plot(x_vals, y_vals, color=custom_colors[species], linewidth=2, label=f'Multilevel: {species}')
 
 # Labels and legend
-plt.xlabel("Flipper Length")
-plt.ylabel("Body Mass")
+plt.xlabel("Body Mass")
+plt.ylabel("Flipper Length")
 plt.title("Simple vs Multilevel Regression: A Tidy Tuesday Journey", fontsize=16)
-plt.legend(title="Model", fontsize=10, title_fontsize=12)
+plt.legend(fontsize=10, title_fontsize=12)
+# I don't like graph borders
+plt.gca().spines['top'].set_visible(False)
+plt.gca().spines['right'].set_visible(False)
+plt.gca().spines['bottom'].set_visible(False)
+plt.gca().spines['left'].set_visible(False)
 plt.tight_layout()
 
 # Save figure
