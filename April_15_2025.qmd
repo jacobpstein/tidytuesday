@@ -5,6 +5,7 @@ format:
     html:
         code-fold: true
 embed-resources: true
+jupyter: python3
 ---
 
 Wow! Here we are attempting a Tidy Tuesday. This is a real long time listener, first time caller situation. My plan is to follow the [instructions](https://github.com/rfordatascience/tidytuesday/blob/main/data/2025/2025-04-15/readme.md) on the Posit git repo for loading the data and then get to work!
