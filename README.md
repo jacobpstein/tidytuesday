@@ -1,0 +1,9 @@
+# My Tidy Tuesday Repo!
+
+I'll try to update this on Tuesday so I can join in the fun, but more than likely, I'll be updating it on Wednesday or Thursday because life, ya know? All data come from Posit's Tidy Tuesday [repo](https://github.com/rfordatascience/tidytuesday/tree/main).
+
+- April 15, 2025: Palmer Penguins. A classic from R that I explored in Python. The [Bambi documentation](https://bambinos.github.io/bambi/) is the real MVP of my script for this week. I used the data as a chance to show why it's generally better to fit a multi-level model instead of a basic linear model when you know there is variation in your data by some grouping. [Code](https://github.com/jacobpstein/tidytuesday/blob/main/April_15/April_15_2025.qmd), [viz](https://github.com/jacobpstein/tidytuesday/blob/main/April_15/simple_vs_multilevel_penguins.png)
+
+- April 22, 2025: 420 and auto fatalities. Some basic exploratory work made me realize that the 420 piece of this was not all that interesting, but that thinking about how to treat count data, especially when the data set at hand is not particularly wide, is kind of neat. I haven't run many Poisson regressions, so that was the task I gave myself this week. [Code](https://github.com/jacobpstein/tidytuesday/tree/main/April_22), [Viz](https://github.com/jacobpstein/tidytuesday/blob/main/April_22/updated_figure.png)
+
+- April 25, 2025: UseR conference sessions. I like streamgraphs. I never use streamgraphs. Let's try streamgraphs! This week, I took a look at the density of conference sessions by timeslot. I don't totally think this works, but it looks kind of neat and it was helpful for looking under the good at the geom_stream function to see how to tinker with output a bit. [Code](https://github.com/jacobpstein/tidytuesday/blob/main/April_29/Streamgraph.R), [Viz](https://github.com/jacobpstein/tidytuesday/blob/main/April_29/streamgraph.png).

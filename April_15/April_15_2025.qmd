@@ -1,0 +1,170 @@
+---
+title: "Palmer Penguins Tidy Tuesday"
+subtitle: "or my attempt to compare linear and multi-level models in an hour"
+format: 
+    html:
+        code-fold: true
+embed-resources: true
+jupyter: python3
+---
+
+Wow! Here we are attempting a Tidy Tuesday. This is a real long time listener, first time caller situation. My plan is to follow the [instructions](https://github.com/rfordatascience/tidytuesday/blob/main/data/2025/2025-04-15/readme.md) on the Posit git repo for loading the data and then get to work!
+
+```{python}
+
+# load our libraries
+import pandas as pd # for EDA and importing
+import numpy as np # so pandas actually works
+import seaborn as sns # for viz
+import matplotlib.pyplot as plt # also for viz
+import statsmodels.api as sm # for modeling
+import bambi as bmb # for Bayesian multi-level models
+import arviz as az # for model viz
+from matplotlib import colormaps
+import matplotlib.font_manager as font_manager # font fixes
+
+
+# Load in our data from the Tidy Tuesday git repo:
+
+penguins = pd.read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2025/2025-04-15/penguins.csv')
+
+# let's update the sex column to numeric
+penguins['sex'] = penguins['sex'].map({'male': 0, 'female': 1})
+
+
+```
+
+Ok, let's just take a look at the basic relationships between our columns with my favorite EDA plot, the correlogram (a word I have only ever read and fear for the day I have to read out loud).
+
+```{python}
+
+ # Basic correlogram
+sns.pairplot(penguins, kind="scatter", hue="species")
+plt.show()
+
+```
+
+and let's put some numbers behind that figure
+```{python}
+penguins.drop(columns=['species', 'island']).corr()
+```
+
+Ok, so we see that flipper length and body mass are really, highly correlated. There's a pretty good relationship with bill length too, and it looks like female penguins tend to have lower mass and smaller bill and flipper lengths. 
+
+# Model time!
+
+```{python}
+
+# There are 11 missing values from the sex column. If this weren't a Tidy Tuesday, we might do more work to see what's going on with those, but for now, let's power ahead and drop them for our model
+
+penguins_no_na = penguins.dropna()
+
+# fit a simple linear model to estimate the relationship between flipper length and body mass
+
+X = sm.add_constant(penguins_no_na['body_mass'])
+y = penguins_no_na['flipper_len']
+model_simple = sm.OLS(y, X).fit()
+
+# The summary basically tells us what we saw from the correlation matrix
+print(model_simple.summary())
+```
+
+But we know there is some variation by species and island, so let's add that in the model and allow our intercept and slope to vary accordingly
+
+```{python}
+#| message: false
+#| warning: false
+#| include: false
+
+
+model_mixed = bmb.Model("flipper_len ~ body_mass + (1 + body_mass | species) + (1 | island)", data=penguins_no_na)
+
+# let's explain this because it's helpful for both python and R:
+# we want body mass as a fixed effect (a consistent relationship across all penguins), but we also know that 
+# the relationship between flipper length and body mass may vary by species
+
+# (1 + body_mass | species) means that both the intercept ("1") and the slope for body mass can vary randomly by species 
+# Essentially, each penguin species might have its own unique relationship between flipper length and body mass
+# (1 | island) means that only the intercept varies by island. Penguin body mass might differ between islands
+# but the relationship between flipper length and body mass is probably the same across islands. But who knows, this could be an area
+# for more exploration
+
+fitted_mixed = model_mixed.fit(draws=1000, chains=4, cores=2)
+# we'll use the fitted model object for some other work, plus I always like to have it ready
+
+# take a look
+az.summary(model_mixed.fit())
+
+```
+
+It looks like basic OLS is overstating the flipper-body mass association because it ignores species-specific variation.
+
+```{python}
+
+# Now that we've fit a model to the data to account for variation at different levels in our slopes and intercepts, let's pull those values out so we can use them for graphing
+posterior = fitted_mixed.posterior
+intercept_global = posterior["Intercept"].mean().item()
+slope_global = posterior["body_mass"].mean().item()
+species_levels = penguins_no_na['species'].astype('category').cat.categories.tolist()
+intercept_species = posterior["1|species"].mean(dim=["chain", "draw"]).values
+slope_species = posterior["body_mass|species"].mean(dim=["chain", "draw"]).values
+
+# Create some prediction lines
+body_grid = np.linspace(penguins_no_na["body_mass"].min(), penguins_no_na["body_mass"].max(), 100)
+species_lines = []
+for i, species in enumerate(species_levels):
+    intercept = intercept_global + intercept_species[i]
+    slope = slope_global + slope_species[i]
+    y_vals = intercept + slope * body_grid
+    species_lines.append((species, body_grid, y_vals))
+
+# Add some nice colors and fonts
+# hex colors for species, I took these from https://www.color-hex.com/color-palette/1058331
+custom_colors = {
+    "Adelie": "#5b6f95",
+    "Chinstrap": "#e85f1c",
+    "Gentoo": "#8cc3c7"
+}
+
+# Set font to Gill Sans (if installed)
+plt.rcParams["font.family"] = "Gill Sans"
+
+# Graph the thing
+plt.figure(figsize=(10, 6))
+for species, color in custom_colors.items():
+    subset = penguins_no_na[penguins_no_na["species"] == species]
+    plt.scatter(subset["body_mass"], subset["flipper_len"], alpha=0.5, color=color, label=None)
+
+# Simple regression line (dashed)
+simple_intercept = model_simple.params['const']
+simple_slope = model_simple.params['body_mass']
+y_simple = simple_intercept + simple_slope * body_grid
+plt.plot(body_grid, y_simple, linestyle='--', color='black', linewidth=2, label='Simple Model-All speciies')
+
+# Multilevel regression lines
+for (species, x_vals, y_vals) in species_lines:
+    plt.plot(x_vals, y_vals, color=custom_colors[species], linewidth=2, label=f'Multilevel: {species}')
+
+# Labels and legend
+plt.xlabel("Body Mass")
+plt.ylabel("Flipper Length")
+
+plt.suptitle("Simple vs Multilevel Regression", fontsize=16, ha = 'center')
+plt.title("Multilevel models capture species-specific relationships that simple models miss", ha = 'center', 
+          fontsize=11, fontweight='normal', style='italic')
+
+          
+plt.legend(fontsize=10, title_fontsize=12)
+# I don't like graph borders
+plt.gca().spines['top'].set_visible(False)
+plt.gca().spines['right'].set_visible(False)
+plt.gca().spines['bottom'].set_visible(False)
+plt.gca().spines['left'].set_visible(False)
+plt.tight_layout()
+
+# Save figure
+plt.savefig("simple_vs_multilevel_penguins.png", dpi=300)
+plt.show()
+```
+
+Every model abstracts in some way, or to add my own abstraction--fitting a model to data is a blunt tool for understanding the world. But the point of this exercise is to see how accounting for the variation in our data by species and island (though as the table shows, this was less informative) makes the model a slightly better tool than assuming a very basic linear relationship.
