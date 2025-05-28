@@ -142,7 +142,6 @@ observed_means = df.groupby('day_name')['fatalities_count'].mean().reindex(day_o
 # Set font to Gill Sans 
 plt.rcParams["font.family"] = "Gill Sans"
 plt.rcParams.update({'font.size': 16})
-plt.figure(figsize=(10, 8))
 
 # Plot Poisson
 plt.plot(day_order, poisson_preds_ordered, color='#6495ED',  linewidth = 2)
