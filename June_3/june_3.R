@@ -63,8 +63,6 @@ bezier_df <- pair_counts |>
 # Plot 
 p <- ggplot(bezier_df, aes(x = x, y = y, group = group)) +
   geom_bezier(aes(size = size, color = group), alpha = 0.7, lineend = "round") +
-  scale_size(range = c(0.2, 4), guide = "none") +
-  scale_color_viridis_d(option = "A", end = 0.9) +
   labs(
     title = "Writer Birth–Death Arcs Since the Birth of the Novel",
     subtitle = "Line thickness reflects number of people per birth–death decade pair",
@@ -72,6 +70,9 @@ p <- ggplot(bezier_df, aes(x = x, y = y, group = group)) +
     , caption = "Miguel Cervantes was born in 1547. While there is debate about 'the novel,'\nI'm considering Don Quixote the first modern novel and it's author's birth for filtering the data."
   ) +
   theme_minimal() +
+  usaidplot::usaid_plot(ppt = TRUE) +
+    scale_size(range = c(0.2, 4), guide = "none") +
+  scale_color_viridis_d(option = "A", end = 0.9) +
   theme(legend.position = "NA"
     , axis.text.y = element_blank()
     , axis.ticks.y = element_blank()
@@ -81,6 +82,7 @@ p <- ggplot(bezier_df, aes(x = x, y = y, group = group)) +
     , strip.text = element_text(size = 18)
     , axis.text.x = element_text(size = 14)
     , plot.caption = element_text(family = 'Gill Sans', size = 10)
+    , strip.background = element_blank()
   ) + facet_wrap(~century, scales = "free")
 
 p
