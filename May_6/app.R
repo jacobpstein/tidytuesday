@@ -78,7 +78,7 @@ Variables:
   
   For example: 'which states lost the most grant funding?'
   
-  or 'Show me all of the grants cancelled in Maryland?'",
+  or 'Show me all of the grants cancelled in Maryland.'",
   extra_instructions = "Only respond using the provided NSF data."
 )
 
