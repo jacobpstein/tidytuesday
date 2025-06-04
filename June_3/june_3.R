@@ -77,11 +77,12 @@ p <- ggplot(bezier_df, aes(x = x, y = y, group = group)) +
     , axis.ticks.y = element_blank()
     , panel.grid.major.y = element_blank()
     , title = element_text(family = 'Gill Sans', size = 26)
-    , subtitle = element_text(family = 'Gill Sans', size = 18)
+    , plot.subtitle = element_text(family = 'Gill Sans', size = 18)
     , strip.text = element_text(size = 18)
-    , caption = element_text(family = 'Gill Sans', size = 8)
+    , axis.text.x = element_text(size = 10)
+    , plot.caption = element_text(family = 'Gill Sans', size = 5)
   ) + facet_wrap(~century, scales = "free")
 
 p
 
-ggsave('writer_deaths.png', p, width = 16, height = 9, dpi = 1000)
+ggsave('writer_deaths.png', p, width = 16, height = 12, dpi = 1000)
