@@ -78,7 +78,8 @@ p <- ggplot(bezier_df, aes(x = x, y = y, group = group)) +
     , panel.grid.major.y = element_blank()
     , title = element_text(family = 'Gill Sans', size = 26)
     , subtitle = element_text(family = 'Gill Sans', size = 18)
-    , strip.text = element_text(size = 16)
+    , strip.text = element_text(size = 18)
+    , caption = element_text(family = 'Gill Sans', size = 8)
   ) + facet_wrap(~century, scales = "free")
 
 p
