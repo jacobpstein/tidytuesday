@@ -22,32 +22,63 @@ library(htmltools) # to make the whole thing run via html
 library(plotly) # for interactive plots
 library(janitor) # to clean up
 library(stringi) # to fix some strings
+library(RSQLite) # querychat needs a dataframe SQL engine at runtime
 
 # since we're mapping we want to avoid dealing with repeated shapefile downloads
 # this is a little hack to make things run smoother
 options(tigris_use_cache = TRUE, tigris_class = "sf")
 
+# normalize the live csv to the schema the dashboard expects
+normalize_nsf_terminations <- function(df) {
+  df <- df |>
+    clean_names()
+
+  legacy_name_map <- c(
+    grant_number = "grant_id",
+    termination_letter_date = "termination_date",
+    nsf_expected_end_date = "nsf_end_date",
+    directorate_abbrev = "dir"
+  )
+
+  for (legacy_name in names(legacy_name_map)) {
+    current_name <- legacy_name_map[[legacy_name]]
+
+    if (!legacy_name %in% names(df) && current_name %in% names(df)) {
+      df[[legacy_name]] <- df[[current_name]]
+    }
+  }
+
+  optional_columns <- c("in_cruz_list", "org_district", "org_zip", "org_uei")
+
+  for (column_name in optional_columns) {
+    if (!column_name %in% names(df)) {
+      df[[column_name]] <- NA
+    }
+  }
+
+  df |>
+    mutate(
+      usaspending_obligated = parse_number(as.character(usaspending_obligated)),
+      in_cruz_list = replace_na(as.logical(in_cruz_list), FALSE),
+      grant_number = as.character(grant_number),
+      org_city = str_to_title(str_to_lower(org_city))
+    )
+}
+
 # load and clean data (code from Tidy Tuesday's github)
 raw_nsf_terminations <- readr::read_csv(
-  "https://drive.usercontent.google.com/download?id=1TFoyowiiMFZm73iU4YORniydEeHhrsVz&export=download"
+  "https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2025/2025-05-06/nsf_terminations.csv"
 )
 
-nsf_terminations <- raw_nsf_terminations |> 
-  clean_names() |> 
-  mutate(
-    usaspending_obligated = stri_replace_first_fixed(usaspending_obligated, "$", "") |> 
-      parse_number(),
-    in_cruz_list = !is.na(in_cruz_list),
-    grant_number = as.character(grant_number),
-    org_city = str_to_title(str_to_lower(org_city))
-  )
+nsf_terminations <- normalize_nsf_terminations(raw_nsf_terminations)
 
 # querychat configuration with data dictionary
 # this is mostly taken from the querychat github but 
 # instead of creating a separate data description file
 # I'm just dumping everything here. It's not elegant but it works
-querychat_config <- querychat_init(
+qc <- QueryChat$new(
   nsf_terminations,
+  "nsf_terminations",
   data_description = "
 This dataset includes information on cancelled NSF grants.
 
@@ -89,7 +120,7 @@ Variables:
 # This sets up our general layout
 ui <- page_sidebar(
   title = "Cancelled NSF Grants Dashboard",
-  sidebar = querychat_sidebar("chat"),
+  sidebar = qc$sidebar(),
   layout_columns(
     value_box(title = "Grants Cancelled", value = textOutput("n_Grants")),
     value_box(title = "Total Value Cancelled", value = textOutput("total_value")),
@@ -104,10 +135,9 @@ ui <- page_sidebar(
 
 # Server section to make the thing run
 server <- function(input, output, session) {
-  
-  querychat <- querychat_server("chat", querychat_config)
+  qc_vals <- qc$server()
 
-  df <- reactive(querychat$df())
+  df <- reactive(qc_vals$df())
   
   # Value boxes
   output$n_Grants <- renderText({ nrow(df()) })
@@ -183,7 +213,14 @@ server <- function(input, output, session) {
   # Data table just like in the querychat example
   output$dt <- renderDT({
     df() |> 
-      select(org_state, org_name, project_title, abstract, division, usaspending_obligated)
+      select(any_of(c(
+        "org_state",
+        "org_name",
+        "project_title",
+        "abstract",
+        "division",
+        "usaspending_obligated"
+      )))
   })
 }
 
