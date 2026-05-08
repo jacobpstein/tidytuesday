@@ -161,7 +161,7 @@ server <- function(input, output, session) {
       group_by(org_state) |>
       summarise(
         count = n(),
-        tooltip = paste0(org_state, ": ", count, " Grants"),
+        tooltip = paste0(first(org_state), ": ", count, " Grants"),
         .groups = "drop"
       )
     
